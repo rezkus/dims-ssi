@@ -1,0 +1,29 @@
+
+==OPEN /DIMS/FIRST-NETWORK
+
+
+1)
+./byfn.sh -m up
+
+2)
+docker exec -it cli bash
+
+3)
+peer chaincode install -n mydimscc -v 1 -p github.com/chaincode/dimstest/
+
+4)
+peer chaincode instantiate -o orderer.example.com:7050 --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C mychannel -n mydimscc -v 1 -c '{"Args":["init","a", "123"]}' -P "OR ('Org1MSP.peer','Org2MSP.peer')"
+
+5)
+peer chaincode invoke -o orderer.example.com:7050  --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem  -C mychannel -n mydimscc -c '{"Args":["init_owner","o123", "Rezha", "ITB"]}'
+
+
+
+
+
+
+
+====CLEARING UP====
+
+docker rm -f $(docker ps -aq)
+docker network prune

@@ -38,6 +38,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"math"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
@@ -48,12 +49,12 @@ type SimpleChaincode struct {
 
 // ----- Identity ----- //
 type Identity struct {
-	ObjectType  string        `json:"docType"`     //field for couchdb
-	Id          string        `json:"id"`          //Primary key dari type Identity
-	IsStudent   string        `json:"isStudent"`   //The zero knowledge identity claim
-	IsAgeOver18 string        `json:"isAgeOver18"` //The zero knowledge identity claim
-	IsGPAOver3  string        `json:"isGPAOver3"`  //The zero knowledge identity claim
-	Owner       OwnerRelation `json:"owner"`
+	ObjectType  	string 				`json:"docType"`     //field for couchdb
+	Id          	string 				`json:"id"`          //Primary key dari type Identity
+	Owner       	Owner 				`json:"owner"`
+	IDAttribute   []IDAttribute   `json:"IDAttribute"`   //The zero knowledge identity claim
+	// IsAgeOver18 IDAttribute   `json:"isAgeOver18"` //The zero knowledge identity claim
+	// IsGPAOver3  IDAttribute   `json:"isGPAOver3"`  //The zero knowledge identity claim
 }
 
 // ----- Owners ----- //
@@ -64,11 +65,25 @@ type Owner struct {
 	Company    string `json:"company"`
 }
 
-type OwnerRelation struct {
-	Id       string `json:"id"`
-	Username string `json:"username"` //this is mostly cosmetic/handy, the real relation is by Id not Username
-	Company  string `json:"company"`  //this is mostly cosmetic/handy, the real relation is by Id not Username
+// ---- Identity Attributes ---- //
+type IDAttribute struct {
+	ObjectType				string	`json:"docType"`
+	IDKey						string	`json:"IDKey"`				//key of the attribute
+	IDValue						string  `json:"IDValue"`			//value of the attributes
+	IDSignature 			string  `json:"IDSignature"`	//issuer signature of the attribute
 }
+
+// type OwnerRelation struct {
+// 	Id       string `json:"id"`
+// 	Username string `json:"username"` //this is mostly cosmetic/handy, the real relation is by Id not Username
+// 	Company  string `json:"company"`  //this is mostly cosmetic/handy, the real relation is by Id not Username
+// }
+
+// type IDAttributeRelation struct {
+// 	IDValue string 		`json:"IdentityValue"`
+// 	IDSig 	string		`json:"IdentitySignature"`
+// }
+
 
 // ============================================================================================================================
 // Main
@@ -107,6 +122,10 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	fmt.Println("  GetFunctionAndParameters() function:", funcName)
 	fmt.Println("  GetFunctionAndParameters() args count:", len(args))
 	fmt.Println("  GetFunctionAndParameters() args found:", args)
+
+
+	// fmt.Println("Initiating IDAttribute List")
+	// fmt.Println("Creating IDAttribute[1].IDKey")
 
 	// expecting 1 arg for instantiate or upgrade
 	if len(args) == 1 {
@@ -350,16 +369,16 @@ func write(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 // Shows off building a key's JSON value manually
 //
 // Inputs - Array of strings
-//      0      ,      1      ,     2       ,      3      ,       4       ,        5
-//     id      ,   IsStudent , IsAgeOver18 , IsGPAOver3  ,   Owner ID    ,  Authing company
-// "i999999999",     true    ,    true     ,   false     , "o999999999"  ,      "ITB"
+//      0      ,      1	  ,     2       	 ,      3      		 ,       4       ,        5
+//     id      ,   IDAttribute[1] , IDAttribute[2] , IDAttribute[3]  ,   Owner ID    ,  Authing company
+// "i999999999",     true    			,    true    		 ,   false         , "o999999999"  ,      "ITB"
 // ============================================================================================================================
 func init_identity(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
 	fmt.Println("starting init_identity")
 
-	if len(args) != 6 {
-		return shim.Error("Incorrect number of arguments. Expecting 7")
+	if len(args) < 9 {
+		return shim.Error("Incorrect number of arguments. Expecting 6")
 	}
 
 	//input sanitation
@@ -368,35 +387,32 @@ func init_identity(stub shim.ChaincodeStubInterface, args []string) pb.Response 
 		return shim.Error(err.Error())
 	}
 
-	id := args[0]
-	// if (args[1] == "true") {
-	// 	isStudent := true
-	// } else {
-	// 	isStudent := false
-	// }
-	// if (args[2] == "true") {
-	// 	isAgeOver18 := true
-	// } else {
-	// 	isAgeOver18 := false
-	// }
-	// if (args[3] == "true") {
-	// 	isGPAOver3 := true
-	// } else {
-	// 	isGPAOver3 := false
-	// }
-	isStudent := args[1]
-	isAgeOver18 := args[2]
-	isGPAOver3 := args[3]
-	owner_id := args[4]
-	authed_by_company := args[5]
+	// id := args[0]
+	// isStudent := args[1]
+	// isAgeOver18 := args[2]
+	// isGPAOver3 := args[3]
+	// owner_id := args[4]
+	// authed_by_company := args[5]
 
-	// color := strings.ToLower(args[1])
-	// owner_id := args[3]
-	// authed_by_company := args[4]
-	// size, err := strconv.Atoi(args[2])
-	// if err != nil {
-	// 	return shim.Error("3rd argument must be a numeric string")
-	// }
+	id := args[0]
+	owner_id := args[1]
+	authed_by_company := args[2]
+
+	for i := 3; i < len(args); i++ {
+		if Mod(i, 2) != 0 {
+			IDAttribute[(i-3)/2].ObjectType := "identity_attribute"
+			IDAttribute[(i-3)/2].IDKey := args[i]
+		} else {
+			IDAttribute[(i-4)/2].IDValue := args[i]
+		}
+	}
+
+	// IDAttribute[1].ObjectType := "identity_attribute"
+	// IDAttribute[2].IDKey := key_dictionary('2')
+	// IDAttribute[2].IDValue := args[2]
+	//
+	// IDAttribute[3].IDKey := key_dictionary('3')
+	// IDAttribute[3].IDValue := args[3]
 
 	//check if new owner exists
 	owner, err := get_owner(stub, owner_id)
@@ -419,19 +435,29 @@ func init_identity(stub shim.ChaincodeStubInterface, args []string) pb.Response 
 	}
 
 	//build the identity json string manually
-	str := `{
-		"docType":"identity",
-		"id": "` + id + `",
-		"isStudent": "` + isStudent + `",
-    "isAgeOver18": "` + isAgeOver18 + `",
-    "isGPAOver3": "` + isGPAOver3 + `",
-		"owner": {
-			"id": "` + owner_id + `",
-			"username": "` + owner.Username + `",
-			"company": "` + owner.Company + `"
-		}
-	}`
-	err = stub.PutState(id, []byte(str)) //store identity with id as key
+	err, identityAsBytes := json.Marshal(identity)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	// str := `{
+	// 	"docType":"identity",
+	// 	"id": "` + id + `",
+	// 	"IDAttribute": {
+	// //!!!CARI TAU GIMANA CONVERT JSON ARRAY
+	// 	}
+	// 	"owner": {
+	// 		"id": "` + owner_id + `",
+	// 		"username": "` + owner.Username + `",
+	// 		"company": "` + owner.Company + `"
+	// 	}
+	// }`
+
+	// "isStudent": "` + isStudent + `",
+	// "isAgeOver18": "` + isAgeOver18 + `",
+	// "isGPAOver3": "` + isGPAOver3 + `",
+
+	//---
+	err = stub.PutState(id, identityAsBytes) //store identity with id as key
 	if err != nil {
 		return shim.Error(err.Error())
 	}
@@ -595,6 +621,35 @@ func get_owner(stub shim.ChaincodeStubInterface, id string) (Owner, error) {
 	return owner, nil
 }
 
+// ============================================================================================================================
+// Get Attribute By Identity - get 1 specific attribute of 1 identity (based on Identity.id)
+// args[1] = identity.id
+// args[2] = identity.IDAttribute.IDKey
+// ============================================================================================================================
+
+func get_attribute(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	var identity Identity
+	fmt.Println("starting get_attribute")
+
+	if len(args) != 2 {
+		return shim.Error("Incorrect number of arguments. Expecting 2")
+	}
+
+	identityId := args[1]
+	idKey := args[2]
+
+	//Getting identity by ID
+	fmt.Println("getting identity by args 1 ID")
+	identity := get_identity(stub, id)
+
+	//Getting attribute args[2] based on fetched identity
+	fmt.Println("Getting identity attribute on " + identity.Id + "of" + identity.Owner.Username)
+	for i := range identity.IDAttribute {
+		if identity.IDAttribute[i].IDKey == idKey {
+			return identity.IDAttribute[i]
+		}
+	}
+
 // ========================================================
 // Input Sanitation - dumb input checking, look for empty strings
 // ========================================================
@@ -609,3 +664,7 @@ func sanitize_arguments(strs []string) error {
 	}
 	return nil
 }
+
+// func key_dictionary(idKey string) error {
+// 	switch idKey
+// }
